@@ -1,12 +1,33 @@
 local M = {}
 
+-- Color palette for distinct colors
+local color_palette = {
+  "#FF6B6B", -- Red
+  "#4ECDC4", -- Teal
+  "#45B7D1", -- Light Blue
+  "#96CEB4", -- Sage Green
+  "#FFEEAD", -- Light Yellow
+  "#D4A5A5", -- Dusty Rose
+  "#9B59B6", -- Purple
+  "#3498DB", -- Blue
+  "#E67E22", -- Orange
+  "#2ECC71", -- Green
+  "#F1C40F", -- Yellow
+  "#E74C3C", -- Crimson
+  "#1ABC9C", -- Turquoise
+  "#9B59B6", -- Violet
+  "#34495E", -- Navy Blue
+}
+
+local current_color_index = 0
+
 -- Default configuration
 local default_config = {
   highlight_group_prefix = "WordColor_",
   case_sensitive = false, -- Add case sensitivity option
-  random_color_generator = function()
-    local r, g, b = math.random(0, 255), math.random(0, 255), math.random(0, 255)
-    return string.format("#%02x%02x%02x", r, g, b)
+  get_next_color = function()
+    current_color_index = (current_color_index % #color_palette) + 1
+    return color_palette[current_color_index]
   end,
   sanitize_group_name = function(color)
     return color:gsub("[^a-zA-Z0-9_]", "_")
@@ -59,7 +80,7 @@ end
 -- Function to highlight a specific word in the buffer
 local function highlight_word(buffer, word, line_nr, word_start, word_end)
   if not word_colors[word] then
-    word_colors[word] = M.config.random_color_generator() -- Assign a random color if the word doesn't have one yet
+    word_colors[word] = M.config.get_next_color() -- Assign the next color from the palette if the word doesn't have one yet
   end
   local color = word_colors[word]
   local group_name = M.config.highlight_group_prefix .. M.config.sanitize_group_name(color)

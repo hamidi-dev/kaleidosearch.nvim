@@ -1,0 +1,89 @@
+#+AUTHOR: hamidi-dev
+
+* Kaleidosearch.nvim
+
+A Neovim plugin that colorizes *multiple search terms* with *multiple distinct colors* for better visual tracking.
+
+https://github.com/user-attachments/assets/50a7bbdb-62c5-4c70-be10-86c48ea44d26
+
+** Features
+
+- Highlight multiple search terms with different colors
+- Navigate between matches using standard search commands (n/N)
+- Add words incrementally without losing existing highlights
+- Add word under cursor with a single keymap
+- Hit ~.~ at any point and the colors will change
+
+** Installation
+
+Using your favorite plugin manager:
+
+*** lazy.nvim
+#+begin_src lua
+{
+  "username/kaleidosearch.nvim",
+  config = function()
+    require("kaleidosearch").setup({
+      -- optional configuration
+    })
+  end,
+}
+#+end_src
+
+*** packer.nvim
+#+begin_src lua
+use {
+  "username/kaleidosearch.nvim",
+  config = function()
+    require("kaleidosearch").setup()
+  end
+}
+#+end_src
+
+** Usage
+
+| Command                       | Description                                  |
+|-------------------------------+----------------------------------------------|
+| ~:Kaleidosearch word1 word2~  | Highlight specified words with colors        |
+| ~:KaleidosearchClear~         | Clear all highlighted words                  |
+| ~:KaleidosearchAddWord~       | Add a new word to existing highlights        |
+| ~:KaleidosearchAddCursorWord~ | Add word under cursor to existing highlights |
+
+** Default Keymaps
+
+| Keymap         | Action                                    |
+|----------------+-------------------------------------------|
+| ~<leader>cs~   | Open prompt for words to colorize         |
+| ~<leader>cc~   | Clear all highlighted words               |
+| ~<leader>cn~   | Add a new word to existing highlights     |
+| ~<leader>ca~   | Add word under cursor to existing highlights |
+
+** Configuration
+
+#+begin_src lua
+require("kaleidosearch").setup({
+  highlight_group_prefix = "WordColor_", -- Prefix for highlight groups
+  case_sensitive = false,                -- Case sensitivity for matching
+  keymaps = {
+    enabled = true,                      -- Set to false to disable default keymaps
+    open = "<leader>cs",                 -- Open input prompt for search
+    clear = "<leader>cc",                -- Clear highlights
+    add_new_word = "<leader>cn",         -- Add a new word to existing highlights
+    add_cursor_word = "<leader>ca",      -- Add word under cursor to highlights
+    opts = {
+      noremap = true,
+      silent = true,
+    }
+  }
+})
+#+end_src
+
+** Misc. 
+
+- PRs welcome 😃
+- Ideas / issues welcome 
+
+** License
+
+MIT License
+

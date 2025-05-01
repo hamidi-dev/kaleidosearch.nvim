@@ -59,10 +59,10 @@ local original_filetype
 
 -- Function to save and set filetype to txt
 local function set_filetype_to_txt()
-  if not original_filetype then
+  if not original_filetype or original_filetype == "" then
     original_filetype = vim.bo.filetype
-    vim.bo.filetype = "txt"
   end
+  vim.bo.filetype = "txt"
 end
 
 -- Function to restore the original filetype
@@ -127,7 +127,7 @@ function M.apply_colorization(words_to_colorize)
   clear_highlights(buffer)
   vim.api.nvim_command("set nohlsearch") -- Turn off search highlighting
 
-  -- Set filetype to txt
+  -- Set filetype to txt - always do this when applying colorization
   set_filetype_to_txt()
 
   -- Colorize the words

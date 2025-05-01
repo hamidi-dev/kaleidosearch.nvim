@@ -147,6 +147,9 @@ function M.clear_all_highlights()
   vim.api.nvim_command("set nohlsearch") -- Turn off search highlighting
   clear_highlights(buffer)
 
+  -- Reset last_words to provide a clean slate for next search
+  M.last_words = nil
+
   -- Restore original filetype
   restore_original_filetype()
 end

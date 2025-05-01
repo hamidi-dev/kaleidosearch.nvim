@@ -32,18 +32,20 @@ local default_config = {
   sanitize_group_name = function(color)
     return color:gsub("[^a-zA-Z0-9_]", "_")
   end,
-keymaps = {
-  -- Set to false to disable default keymaps
-  enabled = true,
-  -- Default keymaps
-  toggle = "<leader>cs",  -- Open input prompt for search
-  clear = "<leader>cc",   -- Clear highlights
-  -- Additional options for keymaps
-  opts = {
-    noremap = true,
-    silent = true,
+  keymaps = {
+    -- Set to false to disable default keymaps
+    enabled = true,
+    -- Default keymaps
+    toggle = "<leader>cs",          -- Open input prompt for search
+    clear = "<leader>cc",           -- Clear highlights
+    add_word = "<leader>cn",        -- Add a new word to existing highlights
+    add_cursor_word = "<leader>ca", -- Add word under cursor to highlights
+    -- Additional options for keymaps
+    opts = {
+      noremap = true,
+      silent = true,
+    }
   }
-}
 }
 
 -- Configuration table
@@ -93,13 +95,13 @@ local function colorize_words(buffer, words_to_colorize)
   local lines = vim.api.nvim_buf_get_lines(buffer, 0, -1, false)
   for line_nr, line in ipairs(lines) do
     local search_line = M.config.case_sensitive and line or line:lower()
-    
+
     for _, target_word in ipairs(words_to_colorize) do
       local pattern = target_word -- Exact match
       if not M.config.case_sensitive then
         pattern = pattern:lower()
       end
-      
+
       local start_pos = 1
       while true do
         local word_start, word_end = search_line:find(pattern, start_pos, true)
@@ -137,6 +139,10 @@ end
 
 -- Function to apply the colorization
 function M.apply_colorization(words_to_colorize)
+  if not words_to_colorize or #words_to_colorize == 0 then
+    return
+  end
+
   local buffer = vim.api.nvim_get_current_buf()
 
   -- Clear existing highlights
@@ -169,6 +175,52 @@ end
 
 -- Store the last used words for repeat functionality
 M.last_words = nil
+
+-- Function to add a new word to existing highlighted words
+function M.add_word(word)
+  if not word or word == "" then
+    -- Prompt for word if not provided
+    vim.ui.input({
+      prompt = "Enter word to add to colorization: ",
+      default = "",
+    }, function(input)
+      if input and input ~= "" then
+        M.add_word(input)
+      end
+    end)
+    return
+  end
+
+  -- Add the new word to the existing list
+  local new_words = M.last_words or {}
+  table.insert(new_words, word)
+  M.last_words = new_words
+
+  -- Apply colorization with the updated list
+  M.apply_colorization(new_words)
+
+  -- Make it repeatable
+  vim.cmd([[silent! call repeat#set("\<Plug>KaleidosearchRepeat", v:count)]])
+
+  print("Added word: " .. word)
+end
+
+-- Function to add word under cursor to colorization
+function M.add_word_under_cursor()
+  local word = vim.fn.expand("<cword>")
+  if word and word ~= "" then
+    -- Add the new word to the existing list
+    local new_words = M.last_words or {}
+    table.insert(new_words, word)
+    M.last_words = new_words
+
+    -- Apply colorization with the updated list
+    M.apply_colorization(new_words)
+
+    -- Make it repeatable
+    vim.cmd([[silent! call repeat#set("\<Plug>KaleidosearchRepeat", v:count)]])
+  end
+end
 
 -- Function to execute the colorization and make it repeatable
 local function execute_colored_search(words)
@@ -210,12 +262,22 @@ local function setup_keymaps(keymaps)
   vim.keymap.set('n', keymaps.clear, function()
     M.clear_all_highlights()
   end, vim.tbl_extend("force", keymaps.opts, { desc = "Clear colored search highlights" }))
+
+  -- Add word keymap
+  vim.keymap.set('n', keymaps.add_word, function()
+    M.add_word()
+  end, vim.tbl_extend("force", keymaps.opts, { desc = "Add a word to existing highlights" }))
+
+  -- Add word under cursor keymap
+  vim.keymap.set('n', keymaps.add_cursor_word, function()
+    M.add_word_under_cursor()
+  end, vim.tbl_extend("force", keymaps.opts, { desc = "Add word under cursor to highlights" }))
 end
 
 -- Setup function for plugin configuration
 function M.setup(user_config)
   M.config = vim.tbl_deep_extend("force", default_config, user_config or {})
-  
+
   -- Setup keymaps
   setup_keymaps(M.config.keymaps)
 
@@ -242,7 +304,21 @@ function M.setup(user_config)
   vim.api.nvim_create_user_command("KaleidosearchClear", M.clear_all_highlights, {
     desc = "Clear all word highlights",
   })
+
+  vim.api.nvim_create_user_command("KaleidosearchAddWord", function(args)
+    if args.args and args.args ~= "" then
+      M.add_word(args.args)
+    else
+      M.add_word()
+    end
+  end, {
+    nargs = "?",
+    desc = "Add a word to existing highlights",
+  })
+
+  vim.api.nvim_create_user_command("KaleidosearchAddCursorWord", M.add_word_under_cursor, {
+    desc = "Add word under cursor to highlights",
+  })
 end
 
 return M
-

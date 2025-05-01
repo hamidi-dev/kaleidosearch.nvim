@@ -21,7 +21,12 @@ Using your favorite plugin manager:
 *** lazy.nvim
 #+begin_src lua
 {
-  "username/kaleidosearch.nvim",
+  "hamidi-dev/kaleidosearch.nvim",
+  dependencies = {
+    "tpope/vim-repeat",       -- optional for dot-repeatability
+    "stevearc/dressing.nvim", -- optional for nice input
+  },
+
   config = function()
     require("kaleidosearch").setup({
       -- optional configuration
@@ -33,9 +38,15 @@ Using your favorite plugin manager:
 *** packer.nvim
 #+begin_src lua
 use {
-  "username/kaleidosearch.nvim",
+  'hamidi-dev/kaleidosearch.nvim',
+  requires = {
+    'tpope/vim-repeat',       -- optional for dot-repeatability
+    'stevearc/dressing.nvim', -- optional for nice input
+  },
   config = function()
-    require("kaleidosearch").setup()
+    require('kaleidosearch').setup({
+      -- optional configuration
+    })
   end
 }
 #+end_src

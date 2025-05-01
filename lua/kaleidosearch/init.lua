@@ -57,11 +57,11 @@ local word_colors = {}
 -- Variable to store the original filetype
 local original_filetype
 
--- Function to save and set filetype to diff
-local function set_filetype_to_diff()
+-- Function to save and set filetype to txt
+local function set_filetype_to_txt()
   if not original_filetype then
     original_filetype = vim.bo.filetype
-    vim.bo.filetype = "diff"
+    vim.bo.filetype = "txt"
   end
 end
 
@@ -127,8 +127,8 @@ function M.apply_colorization(words_to_colorize)
   clear_highlights(buffer)
   vim.api.nvim_command("set nohlsearch") -- Turn off search highlighting
 
-  -- Set filetype to diff
-  set_filetype_to_diff()
+  -- Set filetype to txt
+  set_filetype_to_txt()
 
   -- Colorize the words
   colorize_words(buffer, words_to_colorize)

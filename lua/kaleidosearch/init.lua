@@ -36,9 +36,9 @@ local default_config = {
     -- Set to false to disable default keymaps
     enabled = true,
     -- Default keymaps
-    toggle = "<leader>cs",          -- Open input prompt for search
+    open = "<leader>cs",            -- Open input prompt for search
     clear = "<leader>cc",           -- Clear highlights
-    add_word = "<leader>cn",        -- Add a new word to existing highlights
+    add_new_word = "<leader>cn",    -- Add a new word to existing highlights
     add_cursor_word = "<leader>ca", -- Add word under cursor to highlights
     -- Additional options for keymaps
     opts = {
@@ -115,28 +115,6 @@ local function colorize_words(buffer, words_to_colorize)
   end
 end
 
--- Function to toggle word colorization based on user input
-function M.toggle_colorize_and_search(args)
-  -- If args are provided directly (via command), use them
-  if args.args and args.args ~= "" then
-    local words_to_colorize = vim.split(args.args, " ")
-    M.apply_colorization(words_to_colorize)
-    return
-  end
-
-  -- Otherwise, use dressing.nvim for input
-  vim.ui.input({
-    prompt = "Enter words to colorize (space-separated): ",
-    default = "",
-    completion = "file",
-  }, function(input)
-    if input then
-      local words_to_colorize = vim.split(input, " ")
-      M.apply_colorization(words_to_colorize)
-    end
-  end)
-end
-
 -- Function to apply the colorization
 function M.apply_colorization(words_to_colorize)
   if not words_to_colorize or #words_to_colorize == 0 then
@@ -177,7 +155,7 @@ end
 M.last_words = nil
 
 -- Function to add a new word to existing highlighted words
-function M.add_word(word)
+function M.add_new_word(word)
   if not word or word == "" then
     -- Prompt for word if not provided
     vim.ui.input({
@@ -185,7 +163,7 @@ function M.add_word(word)
       default = "",
     }, function(input)
       if input and input ~= "" then
-        M.add_word(input)
+        M.add_new_word(input)
       end
     end)
     return
@@ -201,8 +179,6 @@ function M.add_word(word)
 
   -- Make it repeatable
   vim.cmd([[silent! call repeat#set("\<Plug>KaleidosearchRepeat", v:count)]])
-
-  print("Added word: " .. word)
 end
 
 -- Function to add word under cursor to colorization
@@ -232,6 +208,19 @@ local function execute_colored_search(words)
   end
 end
 
+-- Function to prompt for words and execute search
+function M.prompt_and_search()
+  vim.ui.input({
+    prompt = "Enter words to colorize (space-separated): ",
+    default = "",
+    completion = "file",
+  }, function(input)
+    if input then
+      execute_colored_search(vim.split(input, " "))
+    end
+  end)
+end
+
 -- Function to setup keymaps
 local function setup_keymaps(keymaps)
   if not keymaps.enabled then
@@ -245,33 +234,25 @@ local function setup_keymaps(keymaps)
     end
   end, { silent = true })
 
-  -- Toggle keymap - opens dressing.nvim input
-  vim.keymap.set('n', keymaps.toggle, function()
-    vim.ui.input({
-      prompt = "Enter words to colorize (space-separated): ",
-      default = "",
-      completion = "file",
-    }, function(input)
-      if input then
-        execute_colored_search(vim.split(input, " "))
-      end
-    end)
-  end, vim.tbl_extend("force", keymaps.opts, { desc = "Color and search words" }))
+  -- Open prompt keymap
+  vim.keymap.set('n', keymaps.open, function()
+    M.prompt_and_search()
+  end, vim.tbl_extend("force", keymaps.opts, { desc = "KaleidoSearch: Color and search words" }))
 
   -- Clear keymap
   vim.keymap.set('n', keymaps.clear, function()
     M.clear_all_highlights()
-  end, vim.tbl_extend("force", keymaps.opts, { desc = "Clear colored search highlights" }))
+  end, vim.tbl_extend("force", keymaps.opts, { desc = "KaleidoSearch: Clear colored search highlights" }))
 
   -- Add word keymap
-  vim.keymap.set('n', keymaps.add_word, function()
-    M.add_word()
-  end, vim.tbl_extend("force", keymaps.opts, { desc = "Add a word to existing highlights" }))
+  vim.keymap.set('n', keymaps.add_new_word, function()
+    M.add_new_word()
+  end, vim.tbl_extend("force", keymaps.opts, { desc = "KaleidoSearch: Add a word to existing highlights" }))
 
   -- Add word under cursor keymap
   vim.keymap.set('n', keymaps.add_cursor_word, function()
     M.add_word_under_cursor()
-  end, vim.tbl_extend("force", keymaps.opts, { desc = "Add word under cursor to highlights" }))
+  end, vim.tbl_extend("force", keymaps.opts, { desc = "KaleidoSearch: Add word under cursor to highlights" }))
 end
 
 -- Setup function for plugin configuration
@@ -286,15 +267,7 @@ function M.setup(user_config)
     if args.args and args.args ~= "" then
       execute_colored_search(vim.split(args.args, " "))
     else
-      vim.ui.input({
-        prompt = "Enter words to colorize (space-separated): ",
-        default = "",
-        completion = "file",
-      }, function(input)
-        if input then
-          execute_colored_search(vim.split(input, " "))
-        end
-      end)
+      M.prompt_and_search()
     end
   end, {
     nargs = "*",
@@ -307,9 +280,9 @@ function M.setup(user_config)
 
   vim.api.nvim_create_user_command("KaleidosearchAddWord", function(args)
     if args.args and args.args ~= "" then
-      M.add_word(args.args)
+      M.add_new_word(args.args)
     else
-      M.add_word()
+      M.add_new_word()
     end
   end, {
     nargs = "?",

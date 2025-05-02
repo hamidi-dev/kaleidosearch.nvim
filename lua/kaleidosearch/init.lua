@@ -139,6 +139,9 @@ function M.apply_colorization(words_to_colorize)
   vim.fn.setreg("/", search_pattern) -- Set search register
   vim.api.nvim_command("nohlsearch") -- Disable default search highlighting
   print("Search pattern set: " .. search_pattern)
+
+  -- Store the words for later use
+  M.last_words = words_to_colorize
 end
 
 -- Function to clear all highlights
@@ -147,8 +150,8 @@ function M.clear_all_highlights()
   vim.api.nvim_command("set nohlsearch") -- Turn off search highlighting
   clear_highlights(buffer)
 
-  -- Reset last_words to provide a clean slate for next search
-  M.last_words = nil
+  -- Reset last_words to an empty table instead of nil
+  M.last_words = {}
 
   -- Restore original filetype
   restore_original_filetype()
@@ -220,6 +223,8 @@ function M.toggle_word_under_cursor()
     else
       -- Clear highlights if no words remain
       M.clear_all_highlights()
+      -- Ensure last_words is an empty table rather than nil
+      M.last_words = {}
     end
 
     -- Make it repeatable

@@ -89,6 +89,24 @@ require("kaleidosearch").setup({
 })
 #+end_src
 
+** Development
+
+*** Running Tests
+
+This plugin includes unit tests using Plenary.nvim. To run the tests:
+
+1. Use the provided script (it will install Plenary.nvim if needed):
+
+#+begin_src bash
+./scripts/run_tests.sh
+#+end_src
+
+2. Or if you're inside Neovim with Plenary installed:
+
+#+begin_src vim
+:PlenaryBustedDirectory test/ {minimal_init = 'test/minimal_init.lua'}
+#+end_src
+
 ** Misc. 
 
 - PRs welcome 😃

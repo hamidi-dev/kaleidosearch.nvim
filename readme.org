@@ -11,8 +11,8 @@ https://github.com/user-attachments/assets/50a7bbdb-62c5-4c70-be10-86c48ea44d26
 - Highlight multiple search terms with different colors
 - Navigate between matches using standard search commands (n/N)
 - Add words incrementally without losing existing highlights
-- Add word under cursor with a single keymap
-- Hit ~.~ at any point and the colors will change
+- Add word under cursor with a single keymap AND remove it (toggle)
+- dot-repeatable: Hit ~.~ at any point and the colors will change
 
 ** Installation
 

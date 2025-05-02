@@ -244,9 +244,15 @@ end
 
 -- Function to prompt for words and execute search
 function M.prompt_and_search()
+  -- Prepare default input with existing words if available
+  local default_input = ""
+  if M.last_words and #M.last_words > 0 then
+    default_input = table.concat(M.last_words, " ")
+  end
+
   vim.ui.input({
     prompt = "Enter words to colorize (space-separated): ",
-    default = "",
+    default = default_input,
     completion = "file",
   }, function(input)
     if input then

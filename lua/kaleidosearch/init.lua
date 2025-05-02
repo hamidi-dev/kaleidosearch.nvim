@@ -184,17 +184,43 @@ function M.add_new_word(word)
   vim.cmd([[silent! call repeat#set("\<Plug>KaleidosearchRepeat", v:count)]])
 end
 
--- Function to add word under cursor to colorization
-function M.add_word_under_cursor()
+-- Function to add word under cursor to colorization or remove it if already highlighted
+function M.toggle_word_under_cursor()
   local word = vim.fn.expand("<cword>")
   if word and word ~= "" then
-    -- Add the new word to the existing list
     local new_words = M.last_words or {}
-    table.insert(new_words, word)
+
+    -- Check if the word is already highlighted
+    local word_index = nil
+    for i, highlighted_word in ipairs(new_words) do
+      if highlighted_word == word then
+        word_index = i
+        break
+      end
+    end
+
+    if word_index then
+      -- Word is already highlighted, remove it
+      table.remove(new_words, word_index)
+
+      -- If this was the last word, restore original filetype
+      if #new_words == 0 then
+        restore_original_filetype()
+      end
+    else
+      -- Word is not highlighted, add it
+      table.insert(new_words, word)
+    end
+
     M.last_words = new_words
 
     -- Apply colorization with the updated list
-    M.apply_colorization(new_words)
+    if #new_words > 0 then
+      M.apply_colorization(new_words)
+    else
+      -- Clear highlights if no words remain
+      M.clear_all_highlights()
+    end
 
     -- Make it repeatable
     vim.cmd([[silent! call repeat#set("\<Plug>KaleidosearchRepeat", v:count)]])
@@ -252,10 +278,10 @@ local function setup_keymaps(keymaps)
     M.add_new_word()
   end, vim.tbl_extend("force", keymaps.opts, { desc = "KaleidoSearch: Add a word to existing highlights" }))
 
-  -- Add word under cursor keymap
+  -- Toggle highlight for word under cursor keymap
   vim.keymap.set('n', keymaps.add_cursor_word, function()
-    M.add_word_under_cursor()
-  end, vim.tbl_extend("force", keymaps.opts, { desc = "KaleidoSearch: Add word under cursor to highlights" }))
+    M.toggle_word_under_cursor()
+  end, vim.tbl_extend("force", keymaps.opts, { desc = "KaleidoSearch: Toggle highlight for word under cursor" }))
 end
 
 -- Setup function for plugin configuration
@@ -292,8 +318,8 @@ function M.setup(user_config)
     desc = "Add a word to existing highlights",
   })
 
-  vim.api.nvim_create_user_command("KaleidosearchAddCursorWord", M.add_word_under_cursor, {
-    desc = "Add word under cursor to highlights",
+  vim.api.nvim_create_user_command("KaleidosearchToggleCursorWord", M.toggle_word_under_cursor, {
+    desc = "Toggle highlight for word under cursor",
   })
 end
 

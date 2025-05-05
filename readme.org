@@ -12,6 +12,7 @@ https://github.com/user-attachments/assets/50a7bbdb-62c5-4c70-be10-86c48ea44d26
 - Navigate between matches using standard search commands (n/N)
 - Add words incrementally without losing existing highlights
 - Add word under cursor with a single keymap AND remove it (toggle)
+- Add visual selection to highlights.
 - dot-repeatable: Hit ~.~ at any point and the colors will change
 
 ** Installation
@@ -80,7 +81,7 @@ require("kaleidosearch").setup({
     open = "<leader>cs",                 -- Open input prompt for search
     clear = "<leader>cc",                -- Clear highlights
     add_new_word = "<leader>cn",         -- Add a new word to existing highlights
-    add_cursor_word = "<leader>ca",      -- Add word under cursor to highlights
+    add_cursor_word = "<leader>ca",      -- Add word under cursor to highlights OR current visual selection
     opts = {
       noremap = true,
       silent = true,

@@ -25,6 +25,7 @@ local current_color_index = 0
 local default_config = {
   highlight_group_prefix = "WordColor_",
   case_sensitive = false, -- Add case sensitivity option
+  debug = false,          -- Debug mode to print additional information
   get_next_color = function()
     current_color_index = (current_color_index % #color_palette) + 1
     return color_palette[current_color_index]
@@ -102,12 +103,21 @@ local function colorize_words(buffer, words_to_colorize)
         pattern = pattern:lower()
       end
 
+      if M.config.debug then
+        print(string.format("Searching for pattern '%s' in line %d", pattern, line_nr))
+      end
+
       local start_pos = 1
       while true do
         local word_start, word_end = search_line:find(pattern, start_pos, true)
         if not word_start then break end
         -- Use the original line for highlighting to preserve case
         local original_word = line:sub(word_start, word_end)
+
+        if M.config.debug then
+          print(string.format("Found match at positions %d-%d: '%s'", word_start, word_end, original_word))
+        end
+
         highlight_word(buffer, original_word, line_nr, word_start, word_end)
         start_pos = word_end + 1
       end
@@ -138,7 +148,11 @@ function M.apply_colorization(words_to_colorize)
   local search_pattern = "\\v" .. case_flag .. table.concat(words_to_colorize, "|")
   vim.fn.setreg("/", search_pattern) -- Set search register
   vim.api.nvim_command("nohlsearch") -- Disable default search highlighting
-  print("Search pattern set: " .. search_pattern)
+
+  if M.config.debug then
+    print("Words to colorize: " .. vim.inspect(words_to_colorize))
+    print("Search pattern set: " .. search_pattern)
+  end
 
   -- Store the words for later use
   M.last_words = words_to_colorize
@@ -187,9 +201,34 @@ function M.add_new_word(word)
   vim.cmd([[silent! call repeat#set("\<Plug>KaleidosearchRepeat", v:count)]])
 end
 
--- Function to add word under cursor to colorization or remove it if already highlighted
-function M.toggle_word_under_cursor()
-  local word = vim.fn.expand("<cword>")
+-- Function to get visual selection
+function M.get_visual_selection()
+  -- Save the current register content
+  local reg_save = vim.fn.getreg('"')
+  local regtype_save = vim.fn.getregtype('"')
+
+  -- Yank the visual selection into the unnamed register
+  vim.cmd('normal! gvy')
+
+  -- Get the content of the unnamed register
+  local selection = vim.fn.getreg('"')
+
+  -- Clean up the selection - remove newlines and extra whitespace
+  selection = selection:gsub("[\n\r]", " "):gsub("%s+", " "):gsub("^%s*(.-)%s*$", "%1")
+
+  if M.config.debug then
+    print("Visual selection (raw): '" .. vim.fn.getreg('"') .. "'")
+    print("Visual selection (cleaned): '" .. selection .. "'")
+  end
+
+  -- Restore the register
+  vim.fn.setreg('"', reg_save, regtype_save)
+
+  return selection
+end
+
+-- Function to toggle a word (add or remove from highlights)
+function M.toggle_word(word)
   if word and word ~= "" then
     local new_words = M.last_words or {}
 
@@ -229,6 +268,39 @@ function M.toggle_word_under_cursor()
 
     -- Make it repeatable
     vim.cmd([[silent! call repeat#set("\<Plug>KaleidosearchRepeat", v:count)]])
+  end
+end
+
+-- Function to toggle word under cursor
+function M.toggle_word_under_cursor()
+  local word = vim.fn.expand("<cword>")
+  if word and word ~= "" then
+    M.toggle_word(word)
+  end
+end
+
+-- Function to toggle word under cursor or selected text
+function M.toggle_word_or_selection()
+  local mode = vim.fn.mode()
+  if mode == 'v' or mode == 'V' or mode == '\22' then -- Visual modes
+    -- Exit visual mode to avoid issues
+    vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<Esc>', true, false, true), 'nx', false)
+
+    local selected_text = M.get_visual_selection()
+    if M.config.debug then
+      print("Mode detected: Visual")
+      print("Selected text: '" .. (selected_text or "nil") .. "'")
+    end
+
+    if selected_text and selected_text ~= "" then
+      M.toggle_word(selected_text)
+    end
+  else
+    -- Normal mode, act on word under cursor
+    if M.config.debug then
+      print("Mode detected: Normal")
+    end
+    M.toggle_word_under_cursor()
   end
 end
 
@@ -289,10 +361,11 @@ local function setup_keymaps(keymaps)
     M.add_new_word()
   end, vim.tbl_extend("force", keymaps.opts, { desc = "KaleidoSearch: Add a word to existing highlights" }))
 
-  -- Toggle highlight for word under cursor keymap
-  vim.keymap.set('n', keymaps.add_cursor_word, function()
-    M.toggle_word_under_cursor()
-  end, vim.tbl_extend("force", keymaps.opts, { desc = "KaleidoSearch: Toggle highlight for word under cursor" }))
+  -- Toggle highlight for word under cursor or visual selection keymap
+  vim.keymap.set({ 'n', 'v' }, keymaps.add_cursor_word, function()
+    M.toggle_word_or_selection()
+  end,
+    vim.tbl_extend("force", keymaps.opts, { desc = "KaleidoSearch: Toggle highlight for word under cursor or selection" }))
 end
 
 -- Setup function for plugin configuration
@@ -329,8 +402,10 @@ function M.setup(user_config)
     desc = "Add a word to existing highlights",
   })
 
-  vim.api.nvim_create_user_command("KaleidosearchToggleCursorWord", M.toggle_word_under_cursor, {
-    desc = "Toggle highlight for word under cursor",
+  vim.api.nvim_create_user_command("KaleidosearchToggleCursorWord", function()
+    M.toggle_word_or_selection()
+  end, {
+    desc = "Toggle highlight for word under cursor or selection",
   })
 end
 

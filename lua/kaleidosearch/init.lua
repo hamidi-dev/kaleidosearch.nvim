@@ -1,40 +1,57 @@
 local M = {}
 
--- Color palette for distinct colors
-local color_palette = {
-  "#FF6B6B", -- Red
-  "#4ECDC4", -- Teal
-  "#45B7D1", -- Light Blue
-  "#96CEB4", -- Sage Green
-  "#FFEEAD", -- Light Yellow
-  "#D4A5A5", -- Dusty Rose
-  "#9B59B6", -- Purple
-  "#3498DB", -- Blue
-  "#E67E22", -- Orange
-  "#2ECC71", -- Green
-  "#F1C40F", -- Yellow
-  "#E74C3C", -- Crimson
-  "#1ABC9C", -- Turquoise
-  "#9B59B6", -- Violet
-  "#34495E", -- Navy Blue
-}
-
+-- Used colors tracking
+local used_colors = {}
 local current_color_index = 0
+
+-- Helper function to convert HSL to RGB
+local function hsl_to_rgb(h, s, l)
+  if s == 0 then
+    return { r = l, g = l, b = l }
+  else
+    local function hue_to_rgb(p, q, t)
+      if t < 0 then t = t + 1 end
+      if t > 1 then t = t - 1 end
+      if t < 1 / 6 then return p + (q - p) * 6 * t end
+      if t < 1 / 2 then return q end
+      if t < 2 / 3 then return p + (q - p) * (2 / 3 - t) * 6 end
+      return p
+    end
+    local q = l < 0.5 and l * (1 + s) or l + s - l * s
+    local p = 2 * l - q
+    return {
+      r = hue_to_rgb(p, q, h + 1 / 3) * 255,
+      g = hue_to_rgb(p, q, h) * 255,
+      b = hue_to_rgb(p, q, h - 1 / 3) * 255
+    }
+  end
+end
+
+-- Generate a new color based on index
+local function generate_color(index)
+  local hue = (index * 137) % 360 / 360 -- Use a large prime number for equally distributed colors
+  local rgb = hsl_to_rgb(hue, 0.5, 0.5)
+  return string.format("#%02X%02X%02X", rgb.r, rgb.g, rgb.b)
+end
+
+-- Smart color selection function
+local function get_next_color()
+  current_color_index = current_color_index + 1
+  local new_color = generate_color(current_color_index)
+  table.insert(used_colors, new_color)
+  return new_color
+end
 
 -- Default configuration
 local default_config = {
   highlight_group_prefix = "WordColor_",
   case_sensitive = false, -- Add case sensitivity option
   debug = false,          -- Debug mode to print additional information
-  get_next_color = function()
-    current_color_index = (current_color_index % #color_palette) + 1
-    return color_palette[current_color_index]
-  end,
+  get_next_color = get_next_color,
   sanitize_group_name = function(color)
     return color:gsub("[^a-zA-Z0-9_]", "_")
   end,
   keymaps = {
-    -- Set to false to disable default keymaps
     enabled = true,
     -- Default keymaps
     open = "<leader>cs",            -- Open input prompt for search
@@ -48,6 +65,14 @@ local default_config = {
     }
   }
 }
+
+-- Debug logging
+local function log(msg, level)
+  level = level or vim.log.levels.INFO
+  if M.config.debug or level == vim.log.levels.ERROR then
+    print("[org-history] " .. msg, level)
+  end
+end
 
 -- Configuration table
 M.config = {}
@@ -102,22 +127,13 @@ local function colorize_words(buffer, words_to_colorize)
       if not M.config.case_sensitive then
         pattern = pattern:lower()
       end
-
-      if M.config.debug then
-        print(string.format("Searching for pattern '%s' in line %d", pattern, line_nr))
-      end
-
+      log(string.format("Searching for pattern '%s' in line %d", pattern, line_nr))
       local start_pos = 1
       while true do
         local word_start, word_end = search_line:find(pattern, start_pos, true)
         if not word_start then break end
-        -- Use the original line for highlighting to preserve case
         local original_word = line:sub(word_start, word_end)
-
-        if M.config.debug then
-          print(string.format("Found match at positions %d-%d: '%s'", word_start, word_end, original_word))
-        end
-
+        log(string.format("Found match at positions %d-%d: '%s'", word_start, word_end, original_word))
         highlight_word(buffer, original_word, line_nr, word_start, word_end)
         start_pos = word_end + 1
       end
@@ -146,15 +162,10 @@ function M.apply_colorization(words_to_colorize)
   -- Build regex pattern for search
   local case_flag = M.config.case_sensitive and "\\C" or "\\c"
   local search_pattern = "\\v" .. case_flag .. table.concat(words_to_colorize, "|")
-  vim.fn.setreg("/", search_pattern) -- Set search register
-  vim.api.nvim_command("nohlsearch") -- Disable default search highlighting
-
-  if M.config.debug then
-    print("Words to colorize: " .. vim.inspect(words_to_colorize))
-    print("Search pattern set: " .. search_pattern)
-  end
-
-  -- Store the words for later use
+  vim.fn.setreg("/", search_pattern)
+  vim.api.nvim_command("nohlsearch")
+  log("Words to colorize: " .. vim.inspect(words_to_colorize))
+  log("Search pattern set: " .. search_pattern)
   M.last_words = words_to_colorize
 end
 
@@ -215,15 +226,9 @@ function M.get_visual_selection()
 
   -- Clean up the selection - remove newlines and extra whitespace
   selection = selection:gsub("[\n\r]", " "):gsub("%s+", " "):gsub("^%s*(.-)%s*$", "%1")
-
-  if M.config.debug then
-    print("Visual selection (raw): '" .. vim.fn.getreg('"') .. "'")
-    print("Visual selection (cleaned): '" .. selection .. "'")
-  end
-
-  -- Restore the register
+  log("Visual selection (raw): '" .. vim.fn.getreg('"') .. "'")
+  log("Visual selection (cleaned): '" .. selection .. "'")
   vim.fn.setreg('"', reg_save, regtype_save)
-
   return selection
 end
 
@@ -287,19 +292,13 @@ function M.toggle_word_or_selection()
     vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<Esc>', true, false, true), 'nx', false)
 
     local selected_text = M.get_visual_selection()
-    if M.config.debug then
-      print("Mode detected: Visual")
-      print("Selected text: '" .. (selected_text or "nil") .. "'")
-    end
-
+    log("Mode detected: Visual")
+    log("Selected text: '" .. (selected_text or "nil") .. "'")
     if selected_text and selected_text ~= "" then
       M.toggle_word(selected_text)
     end
   else
-    -- Normal mode, act on word under cursor
-    if M.config.debug then
-      print("Mode detected: Normal")
-    end
+    log("Mode detected: Normal")
     M.toggle_word_under_cursor()
   end
 end
@@ -363,8 +362,8 @@ local function setup_keymaps(keymaps)
 
   -- Toggle highlight for word under cursor or visual selection keymap
   vim.keymap.set({ 'n', 'v' }, keymaps.add_cursor_word, function()
-    M.toggle_word_or_selection()
-  end,
+      M.toggle_word_or_selection()
+    end,
     vim.tbl_extend("force", keymaps.opts, { desc = "KaleidoSearch: Toggle highlight for word under cursor or selection" }))
 end
 

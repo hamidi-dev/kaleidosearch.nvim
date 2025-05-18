@@ -76,6 +76,7 @@ use {
 require("kaleidosearch").setup({
   highlight_group_prefix = "WordColor_", -- Prefix for highlight groups
   case_sensitive = false,                -- Case sensitivity for matching
+  whole_word_match = false,              -- Only match whole words, not substrings
   keymaps = {
     enabled = true,                      -- Set to false to disable default keymaps
     open = "<leader>cs",                 -- Open input prompt for search

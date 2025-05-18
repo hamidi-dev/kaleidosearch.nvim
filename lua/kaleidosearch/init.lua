@@ -44,9 +44,10 @@ end
 
 -- Default configuration
 local default_config = {
+  debug = false,            -- Debug mode to print additional information
   highlight_group_prefix = "WordColor_",
-  case_sensitive = false, -- Add case sensitivity option
-  debug = false,          -- Debug mode to print additional information
+  case_sensitive = false,   -- Add case sensitivity option
+  whole_word_match = false, -- Only match whole words, not substrings
   get_next_color = get_next_color,
   sanitize_group_name = function(color)
     return color:gsub("[^a-zA-Z0-9_]", "_")
@@ -127,15 +128,43 @@ local function colorize_words(buffer, words_to_colorize)
       if not M.config.case_sensitive then
         pattern = pattern:lower()
       end
+
       log(string.format("Searching for pattern '%s' in line %d", pattern, line_nr))
       local start_pos = 1
+
       while true do
-        local word_start, word_end = search_line:find(pattern, start_pos, true)
-        if not word_start then break end
+        local word_start, word_end
+
+        if M.config.whole_word_match then
+          -- check word boundaries
+          -- First find the pattern
+          word_start, word_end = search_line:find(pattern, start_pos, true)
+          if not word_start then break end
+
+          -- Then check if it's a whole word by examining characters before and after
+          local prev_char = word_start > 1 and search_line:sub(word_start - 1, word_start - 1) or nil
+          local next_char = word_end < #search_line and search_line:sub(word_end + 1, word_end + 1) or nil
+
+          -- Check if the match is surrounded by non-word characters or string boundaries
+          local is_word_boundary_before = not prev_char or not prev_char:match("[%w_]")
+          local is_word_boundary_after = not next_char or not next_char:match("[%w_]")
+
+          -- If not a whole word, move to next potential match
+          if not (is_word_boundary_before and is_word_boundary_after) then
+            start_pos = word_end + 1
+            goto continue
+          end
+        else
+          -- Simple substring matching
+          word_start, word_end = search_line:find(pattern, start_pos, true)
+          if not word_start then break end
+        end
+
         local original_word = line:sub(word_start, word_end)
         log(string.format("Found match at positions %d-%d: '%s'", word_start, word_end, original_word))
         highlight_word(buffer, original_word, line_nr, word_start, word_end)
         start_pos = word_end + 1
+        ::continue::
       end
     end
   end
@@ -161,7 +190,19 @@ function M.apply_colorization(words_to_colorize)
 
   -- Build regex pattern for search
   local case_flag = M.config.case_sensitive and "\\C" or "\\c"
-  local search_pattern = "\\v" .. case_flag .. table.concat(words_to_colorize, "|")
+  local search_pattern = "\\v" .. case_flag
+
+  -- Add word boundary markers if whole_word_match is enabled
+  if M.config.whole_word_match then
+    local patterns = {}
+    for _, word in ipairs(words_to_colorize) do
+      table.insert(patterns, "\\<" .. word .. "\\>")
+    end
+    search_pattern = search_pattern .. "(" .. table.concat(patterns, "|") .. ")"
+  else
+    search_pattern = search_pattern .. table.concat(words_to_colorize, "|")
+  end
+
   vim.fn.setreg("/", search_pattern)
   vim.api.nvim_command("nohlsearch")
   log("Words to colorize: " .. vim.inspect(words_to_colorize))

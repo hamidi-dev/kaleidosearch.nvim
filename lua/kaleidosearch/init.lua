@@ -108,10 +108,13 @@ end
 
 -- Function to highlight a specific word in the buffer
 local function highlight_word(buffer, word, line_nr, word_start, word_end)
-  if not word_colors[word] then
-    word_colors[word] = M.config.get_next_color() -- Assign the next color from the palette if the word doesn't have one yet
+  -- Use lowercase version of the word as key when case_sensitive is false
+  local word_key = M.config.case_sensitive and word or word:lower()
+
+  if not word_colors[word_key] then
+    word_colors[word_key] = M.config.get_next_color() -- Assign the next color from the palette if the word doesn't have one yet
   end
-  local color = word_colors[word]
+  local color = word_colors[word_key]
   local group_name = M.config.highlight_group_prefix .. M.config.sanitize_group_name(color)
   vim.api.nvim_command("highlight " .. group_name .. " guifg=" .. color)
   vim.api.nvim_buf_add_highlight(buffer, 0, group_name, line_nr - 1, word_start - 1, word_end)
@@ -278,12 +281,20 @@ function M.toggle_word(word)
   if word and word ~= "" then
     local new_words = M.last_words or {}
 
-    -- Check if the word is already highlighted
     local word_index = nil
     for i, highlighted_word in ipairs(new_words) do
-      if highlighted_word == word then
-        word_index = i
-        break
+      if M.config.case_sensitive then
+        -- Case sensitive comparison
+        if highlighted_word == word then
+          word_index = i
+          break
+        end
+      else
+        -- Case insensitive comparison
+        if highlighted_word:lower() == word:lower() then
+          word_index = i
+          break
+        end
       end
     end
 

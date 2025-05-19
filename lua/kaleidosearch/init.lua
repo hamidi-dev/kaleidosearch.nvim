@@ -193,19 +193,31 @@ function M.apply_colorization(words_to_colorize)
 
   -- Build regex pattern for search
   local case_flag = M.config.case_sensitive and "\\C" or "\\c"
-  local search_pattern = "\\v" .. case_flag
 
-  -- Add word boundary markers if whole_word_match is enabled
-  if M.config.whole_word_match then
-    local patterns = {}
-    for _, word in ipairs(words_to_colorize) do
-      table.insert(patterns, "\\<" .. word .. "\\>")
+  -- Create a pattern that will work with Vim's search
+  local patterns = {}
+  for _, word in ipairs(words_to_colorize) do
+    -- Escape special regex characters
+    local escaped_word = word:gsub("([%^%$%(%)%%%.%[%]%*%+%-%?])", "\\%1")
+
+    if M.config.whole_word_match then
+      -- For whole word matching, use \< and \> word boundary markers
+      table.insert(patterns, "\\<" .. escaped_word .. "\\>")
+    else
+      table.insert(patterns, escaped_word)
     end
-    search_pattern = search_pattern .. "(" .. table.concat(patterns, "|") .. ")"
-  else
-    search_pattern = search_pattern .. table.concat(words_to_colorize, "|")
   end
 
+  -- Join patterns with OR operator
+  local search_pattern
+  if #patterns > 0 then
+    -- Use magic mode (\m) instead of very magic (\v) for more predictable behavior
+    search_pattern = "\\m" .. case_flag .. "\\(" .. table.concat(patterns, "\\|") .. "\\)"
+  else
+    search_pattern = ""
+  end
+
+  -- Set the search register and disable highlighting
   vim.fn.setreg("/", search_pattern)
   vim.api.nvim_command("nohlsearch")
   log("Words to colorize: " .. vim.inspect(words_to_colorize))

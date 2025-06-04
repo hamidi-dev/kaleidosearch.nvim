@@ -71,7 +71,7 @@ local default_config = {
 local function log(msg, level)
   level = level or vim.log.levels.INFO
   if M.config.debug or level == vim.log.levels.ERROR then
-    print("[org-history] " .. msg, level)
+    print("[kaleidosearch] " .. msg, level)
   end
 end
 

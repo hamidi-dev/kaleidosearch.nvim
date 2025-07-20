@@ -59,6 +59,7 @@ local default_config = {
     clear = "<leader>cc",           -- Clear highlights
     add_new_word = "<leader>cn",    -- Add a new word to existing highlights
     add_cursor_word = "<leader>ca", -- Add word under cursor to highlights
+    colorize_all_lines = "<leader>cl", -- Colorize all lines in the buffer
     -- Additional options for keymaps
     opts = {
       noremap = true,
@@ -80,6 +81,11 @@ M.config = {}
 
 -- Table to store colors for each word
 local word_colors = {}
+-- Table to store colors for each line
+local line_colors = {}
+
+-- expose line colors for testing
+M.line_colors = line_colors
 
 -- Variable to store the original filetype
 local original_filetype
@@ -104,6 +110,7 @@ end
 local function clear_highlights(buffer)
   vim.api.nvim_buf_clear_namespace(buffer, 0, 0, -1)
   word_colors = {}
+  line_colors = {}
 end
 
 -- Function to highlight a specific word in the buffer
@@ -118,6 +125,17 @@ local function highlight_word(buffer, word, line_nr, word_start, word_end)
   local group_name = M.config.highlight_group_prefix .. M.config.sanitize_group_name(color)
   vim.api.nvim_command("highlight " .. group_name .. " guifg=" .. color)
   vim.api.nvim_buf_add_highlight(buffer, 0, group_name, line_nr - 1, word_start - 1, word_end)
+end
+
+-- Function to highlight a specific line in the buffer
+local function highlight_line(buffer, line_content, line_nr)
+  if not line_colors[line_content] then
+    line_colors[line_content] = M.config.get_next_color()
+  end
+  local color = line_colors[line_content]
+  local group_name = M.config.highlight_group_prefix .. M.config.sanitize_group_name(color)
+  vim.api.nvim_command("highlight " .. group_name .. " guibg=" .. color)
+  vim.api.nvim_buf_add_highlight(buffer, 0, group_name, line_nr - 1, 0, -1)
 end
 
 -- Function to colorize words in the buffer
@@ -173,6 +191,14 @@ local function colorize_words(buffer, words_to_colorize)
   end
 end
 
+-- Function to colorize all lines in the buffer
+local function colorize_lines(buffer)
+  local lines = vim.api.nvim_buf_get_lines(buffer, 0, -1, false)
+  for line_nr, line in ipairs(lines) do
+    highlight_line(buffer, line, line_nr)
+  end
+end
+
 -- Function to apply the colorization
 function M.apply_colorization(words_to_colorize)
   if not words_to_colorize or #words_to_colorize == 0 then
@@ -223,6 +249,14 @@ function M.apply_colorization(words_to_colorize)
   log("Words to colorize: " .. vim.inspect(words_to_colorize))
   log("Search pattern set: " .. search_pattern)
   M.last_words = words_to_colorize
+end
+
+-- Function to colorize all lines in the current buffer
+function M.colorize_all_lines()
+  local buffer = vim.api.nvim_get_current_buf()
+  clear_highlights(buffer)
+  set_filetype_to_txt()
+  colorize_lines(buffer)
 end
 
 -- Function to clear all highlights
@@ -429,6 +463,10 @@ local function setup_keymaps(keymaps)
       M.toggle_word_or_selection()
     end,
     vim.tbl_extend("force", keymaps.opts, { desc = "KaleidoSearch: Toggle highlight for word under cursor or selection" }))
+  -- Colorize all lines keymap
+  vim.keymap.set('n', keymaps.colorize_all_lines, function()
+    M.colorize_all_lines()
+  end, vim.tbl_extend("force", keymaps.opts, { desc = "KaleidoSearch: Colorize all lines in the buffer" }))
 end
 
 -- Setup function for plugin configuration
@@ -469,6 +507,12 @@ function M.setup(user_config)
     M.toggle_word_or_selection()
   end, {
     desc = "Toggle highlight for word under cursor or selection",
+  })
+
+  vim.api.nvim_create_user_command("KaleidosearchColorLines", function()
+    M.colorize_all_lines()
+  end, {
+    desc = "Colorize all lines, identical lines share colors",
   })
 end
 

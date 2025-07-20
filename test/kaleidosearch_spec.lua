@@ -140,5 +140,24 @@ describe("kaleidosearch", function()
     assert.is_true(search_pattern:find("test") ~= nil)
     assert.is_true(search_pattern:find("file") ~= nil)
   end)
+
+  it("should colorize identical lines with the same color", function()
+    local buf = vim.api.nvim_get_current_buf()
+    vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
+      "foo",
+      "bar",
+      "foo",
+      "baz",
+      "bar",
+    })
+
+    kaleidosearch.colorize_all_lines()
+
+    local line_colors = kaleidosearch.line_colors
+    assert.are.equal(3, vim.tbl_count(line_colors))
+    assert.is_not_nil(line_colors["foo"])
+    assert.is_not_nil(line_colors["bar"])
+    assert.is_not_nil(line_colors["baz"])
+  end)
 end)
 

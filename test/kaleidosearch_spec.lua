@@ -227,4 +227,24 @@ describe('kaleidosearch', function()
     local search_pattern = vim.fn.getreg('/')
     assert.is_true(search_pattern:find('alpha\\%-gamma', 1, false) ~= nil)
   end)
+
+  it('should keep highlight sessions isolated per buffer', function()
+    local first_buf = vim.api.nvim_get_current_buf()
+    kaleidosearch.apply_colorization({ 'test' })
+    assert.are.same({ 'test' }, kaleidosearch.last_words)
+
+    vim.cmd('new')
+    local second_buf = vim.api.nvim_get_current_buf()
+    vim.api.nvim_buf_set_lines(second_buf, 0, -1, false, {
+      'second buffer content',
+    })
+
+    kaleidosearch.apply_colorization({ 'second' })
+    assert.are.same({ 'second' }, kaleidosearch.last_words)
+
+    vim.api.nvim_set_current_buf(first_buf)
+    assert.are.same({ 'test' }, kaleidosearch.last_words)
+
+    vim.api.nvim_buf_delete(second_buf, { force = true })
+  end)
 end)

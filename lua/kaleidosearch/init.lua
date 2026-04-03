@@ -3,6 +3,7 @@ local M = {}
 -- Used colors tracking
 local used_colors = {}
 local current_color_index = 0
+local palette_shift = 0
 
 -- Helper function to convert HSL to RGB
 local function hsl_to_rgb(h, s, l)
@@ -29,9 +30,12 @@ end
 
 -- Generate a new color based on index
 local function generate_color(index)
-  local hue = (index * 137) % 360 / 360 -- Use a large prime number for equally distributed colors
+  local hue = ((index + palette_shift) * 137) % 360 / 360 -- Use a large prime number for equally distributed colors
   local rgb = hsl_to_rgb(hue, 0.5, 0.5)
-  return string.format("#%02X%02X%02X", rgb.r, rgb.g, rgb.b)
+  local r = math.floor(rgb.r + 0.5)
+  local g = math.floor(rgb.g + 0.5)
+  local b = math.floor(rgb.b + 0.5)
+  return string.format("#%02X%02X%02X", r, g, b)
 end
 
 -- Smart color selection function
@@ -40,6 +44,18 @@ local function get_next_color()
   local new_color = generate_color(current_color_index)
   table.insert(used_colors, new_color)
   return new_color
+end
+
+local function clear_used_colors()
+  for key in pairs(used_colors) do
+    used_colors[key] = nil
+  end
+end
+
+local function start_new_palette()
+  current_color_index = 0
+  palette_shift = (palette_shift + 29) % 360
+  clear_used_colors()
 end
 
 -- Default configuration
@@ -59,6 +75,8 @@ local default_config = {
     clear = "<leader>cc",           -- Clear highlights
     add_new_word = "<leader>cn",    -- Add a new word to existing highlights
     add_cursor_word = "<leader>ca", -- Add word under cursor to highlights
+    colorize_all_words = "<leader>cw", -- Colorize all vim 'word' tokens in buffer
+    colorize_all_WORDS = "<leader>cW", -- Colorize all vim 'WORD' tokens in buffer
     colorize_all_lines = "<leader>cl", -- Colorize all lines in the buffer
     -- Additional options for keymaps
     opts = {
@@ -74,6 +92,36 @@ local function log(msg, level)
   if M.config.debug or level == vim.log.levels.ERROR then
     print("[kaleidosearch] " .. msg, level)
   end
+end
+
+local repeat_actions = {
+  search = "search",
+  all_words = "all_words",
+  all_WORDS = "all_WORDS",
+  lines = "lines",
+}
+
+local function set_repeat(action)
+  M.repeat_action = action
+  vim.cmd([[silent! call repeat#set("\<Plug>KaleidosearchRepeat", v:count)]])
+end
+
+local function run_repeat_action()
+  if M.repeat_action == repeat_actions.search then
+    if M.last_words and #M.last_words > 0 then
+      M.apply_colorization(M.last_words)
+    end
+  elseif M.repeat_action == repeat_actions.all_words then
+    M.colorize_all_buffer_words(true)
+  elseif M.repeat_action == repeat_actions.all_WORDS then
+    M.colorize_all_buffer_words(false)
+  elseif M.repeat_action == repeat_actions.lines then
+    M.colorize_all_lines()
+  end
+end
+
+function M.repeat_last_action()
+  run_repeat_action()
 end
 
 -- Configuration table
@@ -107,10 +155,16 @@ local function restore_original_filetype()
 end
 
 -- Function to clear all highlights from a buffer
+local function clear_table(tbl)
+  for key in pairs(tbl) do
+    tbl[key] = nil
+  end
+end
+
 local function clear_highlights(buffer)
   vim.api.nvim_buf_clear_namespace(buffer, 0, 0, -1)
-  word_colors = {}
-  line_colors = {}
+  clear_table(word_colors)
+  clear_table(line_colors)
 end
 
 -- Function to highlight a specific word in the buffer
@@ -136,6 +190,46 @@ local function highlight_line(buffer, line_content, line_nr)
   local group_name = M.config.highlight_group_prefix .. M.config.sanitize_group_name(color)
   vim.api.nvim_command("highlight " .. group_name .. " guibg=" .. color)
   vim.api.nvim_buf_add_highlight(buffer, 0, group_name, line_nr - 1, 0, -1)
+end
+
+local function normalize_word(word)
+  return M.config.case_sensitive and word or word:lower()
+end
+
+local function unique_words(words)
+  local deduped_words = {}
+  local seen = {}
+
+  for _, word in ipairs(words) do
+    if word and word ~= "" then
+      local key = normalize_word(word)
+      if not seen[key] then
+        seen[key] = true
+        table.insert(deduped_words, word)
+      end
+    end
+  end
+
+  return deduped_words
+end
+
+local function collect_words_from_buffer(buffer, use_word)
+  local lines = vim.api.nvim_buf_get_lines(buffer, 0, -1, false)
+  local words = {}
+  local seen = {}
+  local pattern = use_word and "[%w_]+" or "%S+"
+
+  for _, line in ipairs(lines) do
+    for token in line:gmatch(pattern) do
+      local key = normalize_word(token)
+      if not seen[key] then
+        seen[key] = true
+        table.insert(words, token)
+      end
+    end
+  end
+
+  return words
 end
 
 -- Function to colorize words in the buffer
@@ -201,6 +295,7 @@ end
 
 -- Function to apply the colorization
 function M.apply_colorization(words_to_colorize)
+  words_to_colorize = unique_words(words_to_colorize or {})
   if not words_to_colorize or #words_to_colorize == 0 then
     return
   end
@@ -208,6 +303,7 @@ function M.apply_colorization(words_to_colorize)
   local buffer = vim.api.nvim_get_current_buf()
 
   -- Clear existing highlights
+  start_new_palette()
   clear_highlights(buffer)
   vim.api.nvim_command("set nohlsearch") -- Turn off search highlighting
 
@@ -251,12 +347,31 @@ function M.apply_colorization(words_to_colorize)
   M.last_words = words_to_colorize
 end
 
+-- Function to colorize all words (vim 'word' or 'WORD') in the current buffer
+function M.colorize_all_buffer_words(use_word)
+  local buffer = vim.api.nvim_get_current_buf()
+  local words = collect_words_from_buffer(buffer, use_word)
+
+  if #words == 0 then
+    return
+  end
+
+  M.apply_colorization(words)
+  if use_word then
+    set_repeat(repeat_actions.all_words)
+  else
+    set_repeat(repeat_actions.all_WORDS)
+  end
+end
+
 -- Function to colorize all lines in the current buffer
 function M.colorize_all_lines()
   local buffer = vim.api.nvim_get_current_buf()
+  start_new_palette()
   clear_highlights(buffer)
   set_filetype_to_txt()
   colorize_lines(buffer)
+  set_repeat(repeat_actions.lines)
 end
 
 -- Function to clear all highlights
@@ -299,7 +414,7 @@ function M.add_new_word(word)
   M.apply_colorization(new_words)
 
   -- Make it repeatable
-  vim.cmd([[silent! call repeat#set("\<Plug>KaleidosearchRepeat", v:count)]])
+  set_repeat(repeat_actions.search)
 end
 
 -- Function to get visual selection
@@ -370,7 +485,7 @@ function M.toggle_word(word)
     end
 
     -- Make it repeatable
-    vim.cmd([[silent! call repeat#set("\<Plug>KaleidosearchRepeat", v:count)]])
+    set_repeat(repeat_actions.search)
   end
 end
 
@@ -407,7 +522,7 @@ local function execute_colored_search(words)
     M.last_words = words
     M.apply_colorization(words)
     -- Make it repeatable
-    vim.cmd([[silent! call repeat#set("\<Plug>KaleidosearchRepeat", v:count)]])
+    set_repeat(repeat_actions.search)
   end
 end
 
@@ -425,7 +540,11 @@ function M.prompt_and_search()
     completion = "file",
   }, function(input)
     if input then
-      execute_colored_search(vim.split(input, " "))
+      local words = {}
+      for word in input:gmatch("%S+") do
+        table.insert(words, word)
+      end
+      execute_colored_search(words)
     end
   end)
 end
@@ -437,11 +556,8 @@ local function setup_keymaps(keymaps)
   end
 
   -- Create the Plug mapping for repeat functionality
-  vim.keymap.set('n', '<Plug>KaleidosearchRepeat', function()
-    if M.last_words then
-      execute_colored_search(M.last_words)
-    end
-  end, { silent = true })
+  vim.keymap.set('n', '<Plug>KaleidosearchRepeat', '<Cmd>lua require("kaleidosearch").repeat_last_action()<CR>',
+    { silent = true })
 
   -- Open prompt keymap
   vim.keymap.set('n', keymaps.open, function()
@@ -467,6 +583,16 @@ local function setup_keymaps(keymaps)
   vim.keymap.set('n', keymaps.colorize_all_lines, function()
     M.colorize_all_lines()
   end, vim.tbl_extend("force", keymaps.opts, { desc = "KaleidoSearch: Colorize all lines in the buffer" }))
+
+  -- Colorize all vim 'word' tokens keymap
+  vim.keymap.set('n', keymaps.colorize_all_words, function()
+    M.colorize_all_buffer_words(true)
+  end, vim.tbl_extend("force", keymaps.opts, { desc = "KaleidoSearch: Colorize all word tokens in the buffer" }))
+
+  -- Colorize all vim 'WORD' tokens keymap
+  vim.keymap.set('n', keymaps.colorize_all_WORDS, function()
+    M.colorize_all_buffer_words(false)
+  end, vim.tbl_extend("force", keymaps.opts, { desc = "KaleidoSearch: Colorize all WORD tokens in the buffer" }))
 end
 
 -- Setup function for plugin configuration
@@ -513,6 +639,18 @@ function M.setup(user_config)
     M.colorize_all_lines()
   end, {
     desc = "Colorize all lines, identical lines share colors",
+  })
+
+  vim.api.nvim_create_user_command("KaleidosearchColorWords", function()
+    M.colorize_all_buffer_words(true)
+  end, {
+    desc = "Colorize all vim 'word' tokens in the buffer",
+  })
+
+  vim.api.nvim_create_user_command("KaleidosearchColorWORDS", function()
+    M.colorize_all_buffer_words(false)
+  end, {
+    desc = "Colorize all vim 'WORD' tokens in the buffer",
   })
 end
 

@@ -141,12 +141,6 @@ describe('kaleidosearch', function()
     assert.is_true(search_pattern:find('file') ~= nil)
   end)
 
-  it('telescope picker is optional and graceful when absent', function()
-    assert.has_no.errors(function()
-      kaleidosearch.telescope_picker()
-    end)
-  end)
-
   it('should colorize identical lines with the same color', function()
     local buf = vim.api.nvim_get_current_buf()
     vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
@@ -164,5 +158,54 @@ describe('kaleidosearch', function()
     assert.is_not_nil(line_colors['foo'])
     assert.is_not_nil(line_colors['bar'])
     assert.is_not_nil(line_colors['baz'])
+  end)
+
+  it('should colorize all vim word tokens in the buffer', function()
+    local buf = vim.api.nvim_get_current_buf()
+    vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
+      'alpha beta',
+      'alpha-gamma',
+    })
+
+    kaleidosearch.colorize_all_buffer_words(true)
+
+    assert.are.same({ 'alpha', 'beta', 'gamma' }, kaleidosearch.last_words)
+
+    local search_pattern = vim.fn.getreg('/')
+    assert.is_true(search_pattern:find('alpha', 1, true) ~= nil)
+    assert.is_true(search_pattern:find('beta', 1, true) ~= nil)
+    assert.is_true(search_pattern:find('gamma', 1, true) ~= nil)
+  end)
+
+  it('should treat underscore as part of vim word tokens', function()
+    local buf = vim.api.nvim_get_current_buf()
+    vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
+      "add_new_word = '<leader>kkn'",
+      "add_cursor_word = '<leader>kka'",
+    })
+
+    kaleidosearch.colorize_all_buffer_words(true)
+
+    assert.is_true(vim.tbl_contains(kaleidosearch.last_words, 'add_new_word'))
+    assert.is_true(vim.tbl_contains(kaleidosearch.last_words, 'add_cursor_word'))
+
+    local search_pattern = vim.fn.getreg('/')
+    assert.is_true(search_pattern:find('add_new_word', 1, true) ~= nil)
+    assert.is_true(search_pattern:find('add_cursor_word', 1, true) ~= nil)
+  end)
+
+  it('should colorize all vim WORD tokens in the buffer', function()
+    local buf = vim.api.nvim_get_current_buf()
+    vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
+      'alpha beta',
+      'alpha-gamma',
+    })
+
+    kaleidosearch.colorize_all_buffer_words(false)
+
+    assert.are.same({ 'alpha', 'beta', 'alpha-gamma' }, kaleidosearch.last_words)
+
+    local search_pattern = vim.fn.getreg('/')
+    assert.is_true(search_pattern:find('alpha\\%-gamma', 1, false) ~= nil)
   end)
 end)

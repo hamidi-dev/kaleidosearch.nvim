@@ -60,7 +60,9 @@ use {
 | ~:Kaleidosearch word1 word2~  | Highlight specified words with colors        |
 | ~:KaleidosearchClear~         | Clear all highlighted words                  |
 | ~:KaleidosearchAddWord~       | Add a new word to existing highlights        |
-| ~:KaleidosearchAddCursorWord~ | Add word under cursor to existing highlights |
+| ~:KaleidosearchToggleCursorWord~ | Toggle word under cursor/selection highlight |
+| ~:KaleidosearchColorWords~    | Colorize all vim ~word~ tokens in buffer    |
+| ~:KaleidosearchColorWORDS~    | Colorize all vim ~WORD~ tokens in buffer    |
 | ~:KaleidosearchColorLines~    | Colorize all lines, identical lines share colors |
 
 ** Default Keymaps
@@ -71,6 +73,8 @@ use {
 | ~<leader>cc~ | Clear all highlighted words (reset to clean slate) |
 | ~<leader>cn~ | Add a new word to existing highlights              |
 | ~<leader>ca~ | Add word under cursor to existing highlights       |
+| ~<leader>cw~ | Colorize all vim ~word~ tokens in current buffer   |
+| ~<leader>cW~ | Colorize all vim ~WORD~ tokens in current buffer   |
 
 ** Configuration
 
@@ -85,7 +89,9 @@ require("kaleidosearch").setup({
     clear = "<leader>cc",                -- Clear highlights (reset to clean slate)
     add_new_word = "<leader>cn",         -- Add a new word to existing highlights
     add_cursor_word = "<leader>ca",      -- Add word under cursor to highlights OR current visual selection
-    colorize_all_lines = "<leader>cl",      -- Add word under cursor to highlights OR current visual selection
+    colorize_all_words = "<leader>cw",   -- Colorize all vim 'word' tokens
+    colorize_all_WORDS = "<leader>cW",   -- Colorize all vim 'WORD' tokens
+    colorize_all_lines = "<leader>cl",   -- Colorize all lines in current buffer
     opts = {
       noremap = true,
       silent = true,
@@ -120,4 +126,3 @@ This plugin includes unit tests using Plenary.nvim. To run the tests:
 ** License
 
 MIT License
-

@@ -213,14 +213,40 @@ local function unique_words(words)
   return deduped_words
 end
 
+local function collect_vim_word_tokens(line)
+  local tokens = {}
+  local start_pos = 0
+
+  while true do
+    local match = vim.fn.matchstrpos(line, [[\k\+]], start_pos)
+    local token = match[1]
+    local word_start = match[2]
+    local word_end = match[3]
+
+    if word_start < 0 or token == "" then
+      break
+    end
+
+    table.insert(tokens, token)
+    start_pos = word_end
+  end
+
+  return tokens
+end
+
+local function is_keyword_char(char)
+  return char and char ~= "" and vim.fn.match(char, [[\k]]) == 0
+end
+
 local function collect_words_from_buffer(buffer, use_word)
   local lines = vim.api.nvim_buf_get_lines(buffer, 0, -1, false)
   local words = {}
   local seen = {}
-  local pattern = use_word and "[%w_]+" or "%S+"
 
   for _, line in ipairs(lines) do
-    for token in line:gmatch(pattern) do
+    local tokens = use_word and collect_vim_word_tokens(line) or vim.split(line, "%s+", { trimempty = true })
+
+    for _, token in ipairs(tokens) do
       local key = normalize_word(token)
       if not seen[key] then
         seen[key] = true
@@ -261,8 +287,8 @@ local function colorize_words(buffer, words_to_colorize)
           local next_char = word_end < #search_line and search_line:sub(word_end + 1, word_end + 1) or nil
 
           -- Check if the match is surrounded by non-word characters or string boundaries
-          local is_word_boundary_before = not prev_char or not prev_char:match("[%w_]")
-          local is_word_boundary_after = not next_char or not next_char:match("[%w_]")
+          local is_word_boundary_before = not prev_char or not is_keyword_char(prev_char)
+          local is_word_boundary_after = not next_char or not is_keyword_char(next_char)
 
           -- If not a whole word, move to next potential match
           if not (is_word_boundary_before and is_word_boundary_after) then

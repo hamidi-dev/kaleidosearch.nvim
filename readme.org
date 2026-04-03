@@ -15,6 +15,7 @@ https://github.com/user-attachments/assets/50a7bbdb-62c5-4c70-be10-86c48ea44d26
 - Add visual selection to highlights
 - dot-repeatable: Hit ~.~ at any point and the colors will change
 - Colorize entire lines, giving identical lines the same color
+- Vim ~word~ token mode respects your buffer's ~iskeyword~ setting
 
 ** Installation
 

@@ -194,6 +194,25 @@ describe('kaleidosearch', function()
     assert.is_true(search_pattern:find('add_cursor_word', 1, true) ~= nil)
   end)
 
+  it('should respect iskeyword when collecting vim word tokens', function()
+    local buf = vim.api.nvim_get_current_buf()
+    vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
+      'alpha-gamma beta',
+    })
+
+    local original_iskeyword = vim.bo.iskeyword
+    vim.opt_local.iskeyword:append('-')
+
+    kaleidosearch.colorize_all_buffer_words(true)
+
+    vim.bo.iskeyword = original_iskeyword
+
+    assert.are.same({ 'alpha-gamma', 'beta' }, kaleidosearch.last_words)
+
+    local search_pattern = vim.fn.getreg('/')
+    assert.is_true(search_pattern:find('alpha\\%-gamma', 1, false) ~= nil)
+  end)
+
   it('should colorize all vim WORD tokens in the buffer', function()
     local buf = vim.api.nvim_get_current_buf()
     vim.api.nvim_buf_set_lines(buf, 0, -1, false, {

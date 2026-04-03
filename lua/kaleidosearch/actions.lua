@@ -316,6 +316,61 @@ function M.attach(api, deps)
     end
   end
 
+  function api.get_session_info()
+    local buffer, buf_state = current_context()
+    local token_count = #(buf_state.last_words or {})
+    local line_count = vim.tbl_count(buf_state.line_colors)
+
+    local mode = 'idle'
+    if buf_state.repeat_action == repeat_actions.all_words then
+      mode = 'all_words'
+    elseif buf_state.repeat_action == repeat_actions.all_WORDS then
+      mode = 'all_WORDS'
+    elseif buf_state.repeat_action == repeat_actions.lines then
+      mode = 'lines'
+    elseif buf_state.repeat_action == repeat_actions.search then
+      mode = 'search'
+    elseif token_count > 0 then
+      mode = 'search'
+    elseif line_count > 0 then
+      mode = 'lines'
+    end
+
+    return {
+      buffer = buffer,
+      filetype = vim.bo[buffer].filetype,
+      mode = mode,
+      repeat_action = buf_state.repeat_action or 'none',
+      token_count = token_count,
+      line_count = line_count,
+      case_sensitive = api.config.case_sensitive,
+      whole_word_match = api.config.whole_word_match,
+    }
+  end
+
+  function api.show_info()
+    local info = api.get_session_info()
+    local message = string.format(
+      'mode=%s repeat=%s tokens=%d lines=%d case_sensitive=%s whole_word=%s filetype=%s buffer=%d',
+      info.mode,
+      info.repeat_action,
+      info.token_count,
+      info.line_count,
+      tostring(info.case_sensitive),
+      tostring(info.whole_word_match),
+      info.filetype,
+      info.buffer
+    )
+
+    if vim.notify then
+      vim.notify(message, vim.log.levels.INFO, { title = 'Kaleidosearch' })
+    else
+      print(message)
+    end
+
+    return message
+  end
+
   return execute_colored_search
 end
 

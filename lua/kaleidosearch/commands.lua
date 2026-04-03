@@ -52,6 +52,12 @@ function M.setup(api, execute_colored_search)
   end, {
     desc = "Colorize all vim 'WORD' tokens in the buffer",
   })
+
+  vim.api.nvim_create_user_command('KaleidosearchInfo', function()
+    api.show_info()
+  end, {
+    desc = 'Show current Kaleidosearch session info',
+  })
 end
 
 return M

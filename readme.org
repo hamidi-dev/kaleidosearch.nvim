@@ -65,6 +65,7 @@ use {
 | ~:KaleidosearchColorWords~    | Colorize all vim ~word~ tokens in buffer    |
 | ~:KaleidosearchColorWORDS~    | Colorize all vim ~WORD~ tokens in buffer    |
 | ~:KaleidosearchColorLines~    | Colorize all lines, identical lines share colors |
+| ~:KaleidosearchInfo~          | Show current Kaleidosearch session info     |
 
 ** Default Keymaps
 

@@ -247,4 +247,121 @@ describe('kaleidosearch', function()
 
     vim.api.nvim_buf_delete(second_buf, { force = true })
   end)
+
+  it('should expose session info and info command', function()
+    kaleidosearch.apply_colorization({ 'test', 'file' })
+
+    local info = kaleidosearch.get_session_info()
+    assert.are.equal('search', info.mode)
+    assert.are.equal('none', info.repeat_action)
+    assert.are.equal(2, info.token_count)
+    assert.are.equal(false, info.case_sensitive)
+    assert.are.equal(false, info.whole_word_match)
+    assert.are.equal(vim.api.nvim_get_current_buf(), info.buffer)
+
+    assert.has_no.errors(function()
+      vim.cmd('KaleidosearchInfo')
+    end)
+  end)
+
+  it('should repeat all word token mode with updated buffer content', function()
+    local buf = vim.api.nvim_get_current_buf()
+    vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
+      'alpha beta',
+    })
+
+    kaleidosearch.colorize_all_buffer_words(true)
+    assert.are.equal('all_words', kaleidosearch.repeat_action)
+    assert.are.same({ 'alpha', 'beta' }, kaleidosearch.last_words)
+
+    vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
+      'alpha beta gamma_delta',
+    })
+    kaleidosearch.repeat_last_action()
+
+    assert.are.equal('all_words', kaleidosearch.repeat_action)
+    assert.is_true(vim.tbl_contains(kaleidosearch.last_words, 'gamma_delta'))
+  end)
+
+  it('should repeat all WORD token mode with updated buffer content', function()
+    local buf = vim.api.nvim_get_current_buf()
+    vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
+      'alpha beta',
+    })
+
+    kaleidosearch.colorize_all_buffer_words(false)
+    assert.are.equal('all_WORDS', kaleidosearch.repeat_action)
+
+    vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
+      'alpha beta gamma-delta',
+    })
+    kaleidosearch.repeat_last_action()
+
+    assert.are.equal('all_WORDS', kaleidosearch.repeat_action)
+    assert.is_true(vim.tbl_contains(kaleidosearch.last_words, 'gamma-delta'))
+  end)
+
+  it('should repeat line mode with updated buffer content', function()
+    local buf = vim.api.nvim_get_current_buf()
+    vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
+      'foo',
+      'bar',
+    })
+
+    kaleidosearch.colorize_all_lines()
+    assert.are.equal('lines', kaleidosearch.repeat_action)
+
+    vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
+      'foo',
+      'bar',
+      'baz',
+    })
+    kaleidosearch.repeat_last_action()
+
+    assert.are.equal('lines', kaleidosearch.repeat_action)
+    assert.is_not_nil(kaleidosearch.line_colors['baz'])
+    assert.are.equal(3, vim.tbl_count(kaleidosearch.line_colors))
+  end)
+
+  it('should isolate repeat behavior between buffers', function()
+    local first_buf = vim.api.nvim_get_current_buf()
+    vim.api.nvim_buf_set_lines(first_buf, 0, -1, false, {
+      'alpha beta',
+    })
+
+    kaleidosearch.colorize_all_buffer_words(true)
+    assert.are.equal('all_words', kaleidosearch.repeat_action)
+
+    vim.cmd('new')
+    local second_buf = vim.api.nvim_get_current_buf()
+    vim.api.nvim_buf_set_lines(second_buf, 0, -1, false, {
+      'foo',
+      'bar',
+    })
+
+    kaleidosearch.colorize_all_lines()
+    assert.are.equal('lines', kaleidosearch.repeat_action)
+
+    vim.api.nvim_set_current_buf(first_buf)
+    vim.api.nvim_buf_set_lines(first_buf, 0, -1, false, {
+      'alpha beta gamma',
+    })
+    kaleidosearch.repeat_last_action()
+
+    assert.are.equal('all_words', kaleidosearch.repeat_action)
+    assert.is_true(vim.tbl_contains(kaleidosearch.last_words, 'gamma'))
+
+    vim.api.nvim_set_current_buf(second_buf)
+    vim.api.nvim_buf_set_lines(second_buf, 0, -1, false, {
+      'foo',
+      'bar',
+      'baz',
+    })
+    kaleidosearch.repeat_last_action()
+
+    assert.are.equal('lines', kaleidosearch.repeat_action)
+    assert.is_not_nil(kaleidosearch.line_colors['baz'])
+
+    vim.api.nvim_buf_delete(second_buf, { force = true })
+  end)
 end)

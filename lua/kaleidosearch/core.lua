@@ -5,6 +5,7 @@ local keymaps = require('kaleidosearch.keymaps')
 local matcher = require('kaleidosearch.matcher')
 local palette = require('kaleidosearch.palette')
 local state = require('kaleidosearch.state')
+local token_colors = require('kaleidosearch.token_colors')
 
 local M = {}
 
@@ -13,6 +14,7 @@ local repeat_actions = {
   all_words = 'all_words',
   all_WORDS = 'all_WORDS',
   lines = 'lines',
+  tokens = 'tokens',
 }
 
 M.config = {}
@@ -62,6 +64,7 @@ local execute_colored_search = actions.attach(M, {
   matcher = matcher,
   palette = palette,
   state = state,
+  token_colors = token_colors,
   repeat_actions = repeat_actions,
   log = log,
   current_context = current_context,
@@ -72,6 +75,7 @@ local execute_colored_search = actions.attach(M, {
 
 function M.setup(user_config)
   M.config = config.build(user_config)
+  token_colors.setup(M.config.token_colors)
 
   state.setup_autocmds(function(bufnr, buf_state)
     sync_public_state(bufnr, buf_state)

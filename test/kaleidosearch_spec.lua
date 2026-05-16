@@ -264,6 +264,28 @@ describe('kaleidosearch', function()
     end)
   end)
 
+  it('should expose token color commands', function()
+    assert.are.equal(2, vim.fn.exists(':KaleidosearchColorTokens'))
+    assert.are.equal(2, vim.fn.exists(':KaleidosearchToggleTokens'))
+    assert.is_function(kaleidosearch.colorize_tokens)
+    assert.is_function(kaleidosearch.toggle_token_colors)
+  end)
+
+  it('should clear token color highlights with regular clear', function()
+    local token_colors = require('kaleidosearch.token_colors')
+    local buf = vim.api.nvim_get_current_buf()
+
+    vim.api.nvim_buf_set_extmark(buf, token_colors.namespace, 0, 0, {
+      end_col = 4,
+      hl_group = 'Search',
+    })
+
+    kaleidosearch.clear_all_highlights()
+
+    local marks = vim.api.nvim_buf_get_extmarks(buf, token_colors.namespace, 0, -1, {})
+    assert.are.equal(0, #marks)
+  end)
+
   it('should repeat all word token mode with updated buffer content', function()
     local buf = vim.api.nvim_get_current_buf()
     vim.api.nvim_buf_set_lines(buf, 0, -1, false, {

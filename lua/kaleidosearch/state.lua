@@ -17,6 +17,7 @@ local function new_buffer_state()
     original_filetype = nil,
     last_words = {},
     repeat_action = nil,
+    token_colors_force = false,
     used_colors = {},
     current_color_index = 0,
     palette_shift = 0,

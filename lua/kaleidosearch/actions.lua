@@ -4,6 +4,7 @@ function M.attach(api, deps)
   local matcher = deps.matcher
   local palette = deps.palette
   local state = deps.state
+  local token_colors = deps.token_colors
   local repeat_actions = deps.repeat_actions
   local log = deps.log
   local current_context = deps.current_context
@@ -110,6 +111,7 @@ function M.attach(api, deps)
 
     palette.start_new_palette(buf_state)
     state.clear_highlights(buffer, buf_state)
+    token_colors.clear(buffer, { silent = true })
     vim.api.nvim_command('set nohlsearch')
     state.set_filetype_to_txt(buffer, buf_state)
 
@@ -124,6 +126,7 @@ function M.attach(api, deps)
     log('Search pattern set: ' .. search_pattern)
 
     buf_state.last_words = words_to_colorize
+    buf_state.token_colors_force = false
     sync_public_state(buffer, buf_state)
   end
 
@@ -150,9 +153,11 @@ function M.attach(api, deps)
 
     palette.start_new_palette(buf_state)
     state.clear_highlights(buffer, buf_state)
+    token_colors.clear(buffer, { silent = true })
     state.set_filetype_to_txt(buffer, buf_state)
 
     colorize_lines(buffer, buf_state)
+    buf_state.token_colors_force = false
     sync_public_state(buffer, buf_state)
     set_repeat(buf_state, repeat_actions.lines)
   end
@@ -162,10 +167,35 @@ function M.attach(api, deps)
 
     vim.api.nvim_command('set nohlsearch')
     state.clear_highlights(buffer, buf_state)
+    token_colors.clear(buffer, { silent = true })
     buf_state.last_words = {}
+    buf_state.repeat_action = nil
+    buf_state.token_colors_force = false
     state.restore_original_filetype(buffer, buf_state)
 
     sync_public_state(buffer, buf_state)
+  end
+
+  function api.colorize_tokens(opts)
+    opts = opts or {}
+    local buffer, buf_state = current_context()
+
+    vim.api.nvim_command('set nohlsearch')
+    state.clear_highlights(buffer, buf_state)
+    buf_state.last_words = {}
+    state.restore_original_filetype(buffer, buf_state)
+    sync_public_state(buffer, buf_state)
+
+    if token_colors.colorize(opts) then
+      local _, active_state = current_context()
+      active_state.token_colors_force = opts.force == true
+      sync_public_state(buffer, active_state)
+      set_repeat(active_state, repeat_actions.tokens)
+    end
+  end
+
+  function api.toggle_token_colors()
+    token_colors.toggle()
   end
 
   function api.add_new_word(word)
@@ -246,12 +276,11 @@ function M.attach(api, deps)
 
     if #new_words > 0 then
       api.apply_colorization(new_words)
+      local _, active_state = current_context()
+      set_repeat(active_state, repeat_actions.search)
     else
       api.clear_all_highlights()
     end
-
-    local _, active_state = current_context()
-    set_repeat(active_state, repeat_actions.search)
   end
 
   function api.toggle_word_under_cursor()
@@ -313,6 +342,8 @@ function M.attach(api, deps)
       api.colorize_all_buffer_words(false)
     elseif buf_state.repeat_action == repeat_actions.lines then
       api.colorize_all_lines()
+    elseif buf_state.repeat_action == repeat_actions.tokens then
+      api.colorize_tokens({ force = buf_state.token_colors_force == true })
     end
   end
 
@@ -328,8 +359,12 @@ function M.attach(api, deps)
       mode = 'all_WORDS'
     elseif buf_state.repeat_action == repeat_actions.lines then
       mode = 'lines'
+    elseif buf_state.repeat_action == repeat_actions.tokens then
+      mode = 'tokens'
     elseif buf_state.repeat_action == repeat_actions.search then
       mode = 'search'
+    elseif token_colors.is_active(buffer) then
+      mode = 'tokens'
     elseif token_count > 0 then
       mode = 'search'
     elseif line_count > 0 then
@@ -343,6 +378,7 @@ function M.attach(api, deps)
       repeat_action = buf_state.repeat_action or 'none',
       token_count = token_count,
       line_count = line_count,
+      token_colors = token_colors.is_active(buffer),
       case_sensitive = api.config.case_sensitive,
       whole_word_match = api.config.whole_word_match,
     }
@@ -351,11 +387,12 @@ function M.attach(api, deps)
   function api.show_info()
     local info = api.get_session_info()
     local message = string.format(
-      'mode=%s repeat=%s tokens=%d lines=%d case_sensitive=%s whole_word=%s filetype=%s buffer=%d',
+      'mode=%s repeat=%s tokens=%d lines=%d token_colors=%s case_sensitive=%s whole_word=%s filetype=%s buffer=%d',
       info.mode,
       info.repeat_action,
       info.token_count,
       info.line_count,
+      tostring(info.token_colors),
       tostring(info.case_sensitive),
       tostring(info.whole_word_match),
       info.filetype,

@@ -16,6 +16,7 @@ https://github.com/user-attachments/assets/50a7bbdb-62c5-4c70-be10-86c48ea44d26
 - dot-repeatable: Hit ~.~ at any point and the colors will change
 - Colorize entire lines, giving identical lines the same color
 - Vim ~word~ token mode respects your buffer's ~iskeyword~ setting
+- Colorize real ~tiktoken~ token spans in the buffer
 
 ** Installation
 
@@ -65,6 +66,9 @@ use {
 | ~:KaleidosearchColorWords~    | Colorize all vim ~word~ tokens in buffer    |
 | ~:KaleidosearchColorWORDS~    | Colorize all vim ~WORD~ tokens in buffer    |
 | ~:KaleidosearchColorLines~    | Colorize all lines, identical lines share colors |
+| ~:KaleidosearchColorTokens~   | Colorize real ~tiktoken~ token spans in buffer |
+| ~:KaleidosearchColorTokens!~  | Force token colorization for large buffers  |
+| ~:KaleidosearchToggleTokens~  | Toggle ~tiktoken~ token span colors         |
 | ~:KaleidosearchInfo~          | Show current Kaleidosearch session info     |
 
 ** Default Keymaps
@@ -77,6 +81,8 @@ use {
 | ~<leader>ca~ | Add word under cursor to existing highlights       |
 | ~<leader>cw~ | Colorize all vim ~word~ tokens in current buffer   |
 | ~<leader>cW~ | Colorize all vim ~WORD~ tokens in current buffer   |
+| ~<leader>cl~ | Colorize all lines in current buffer               |
+| ~<leader>ct~ | Colorize real ~tiktoken~ tokens in current buffer  |
 
 ** Configuration
 
@@ -94,13 +100,29 @@ require("kaleidosearch").setup({
     colorize_all_words = "<leader>cw",   -- Colorize all vim 'word' tokens
     colorize_all_WORDS = "<leader>cW",   -- Colorize all vim 'WORD' tokens
     colorize_all_lines = "<leader>cl",   -- Colorize all lines in current buffer
+    colorize_tokens = "<leader>ct",      -- Colorize real tiktoken tokens
     opts = {
       noremap = true,
       silent = true,
     }
+  },
+  token_colors = {
+    enabled = true,
+    model = "gpt-4o",                    -- tiktoken model
+    encoding = "o200k_base",             -- fallback encoding
+    max_bytes = 200 * 1024,               -- skip larger buffers unless forced
+    max_highlights = 20000,               -- skip huge token counts unless forced
+    palette_size = 32,
+    saturation = 0.55,
+    lightness = 0.24,
+    priority = 120,
+    notify = true,
+    highlight_group_prefix = "KaleidosearchToken",
   }
 })
 #+end_src
+
+Token colorization shells out asynchronously through ~uv run --with tiktoken~ when ~uv~ is available, otherwise it uses ~python3~ or ~python~ with an installed ~tiktoken~ module. Regular ~:KaleidosearchClear~ and the clear keymap remove word, line, and token highlights.
 
 ** Development
 

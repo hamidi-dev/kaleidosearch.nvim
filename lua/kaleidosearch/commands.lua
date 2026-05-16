@@ -15,7 +15,7 @@ function M.setup(api, execute_colored_search)
   })
 
   vim.api.nvim_create_user_command('KaleidosearchClear', api.clear_all_highlights, {
-    desc = 'Clear all word highlights',
+    desc = 'Clear all Kaleidosearch highlights',
   })
 
   vim.api.nvim_create_user_command('KaleidosearchAddWord', function(args)
@@ -51,6 +51,19 @@ function M.setup(api, execute_colored_search)
     api.colorize_all_buffer_words(false)
   end, {
     desc = "Colorize all vim 'WORD' tokens in the buffer",
+  })
+
+  vim.api.nvim_create_user_command('KaleidosearchColorTokens', function(args)
+    api.colorize_tokens({ force = args.bang })
+  end, {
+    bang = true,
+    desc = 'Colorize real tiktoken token spans in the buffer',
+  })
+
+  vim.api.nvim_create_user_command('KaleidosearchToggleTokens', function()
+    api.toggle_token_colors()
+  end, {
+    desc = 'Toggle tiktoken token span colors in the buffer',
   })
 
   vim.api.nvim_create_user_command('KaleidosearchInfo', function()

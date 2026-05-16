@@ -7,6 +7,19 @@ local default_config = {
   highlight_group_prefix = 'WordColor_',
   case_sensitive = false,
   whole_word_match = false,
+  token_colors = {
+    enabled = true,
+    model = 'gpt-4o',
+    encoding = 'o200k_base',
+    max_bytes = 200 * 1024,
+    max_highlights = 20000,
+    palette_size = 32,
+    saturation = 0.55,
+    lightness = 0.24,
+    priority = 120,
+    notify = true,
+    highlight_group_prefix = 'KaleidosearchToken',
+  },
   get_next_color = function(buf_state)
     return palette.next_color(buf_state)
   end,
@@ -22,6 +35,7 @@ local default_config = {
     colorize_all_words = '<leader>cw',
     colorize_all_WORDS = '<leader>cW',
     colorize_all_lines = '<leader>cl',
+    colorize_tokens = '<leader>ct',
     opts = {
       noremap = true,
       silent = true,

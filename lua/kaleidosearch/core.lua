@@ -1,4 +1,5 @@
 local actions = require('kaleidosearch.actions')
+local backdrop = require('kaleidosearch.backdrop')
 local commands = require('kaleidosearch.commands')
 local config = require('kaleidosearch.config')
 local keymaps = require('kaleidosearch.keymaps')
@@ -61,6 +62,7 @@ local function set_repeat(buf_state, action)
 end
 
 local execute_colored_search = actions.attach(M, {
+  backdrop = backdrop,
   matcher = matcher,
   palette = palette,
   state = state,
@@ -75,6 +77,7 @@ local execute_colored_search = actions.attach(M, {
 
 function M.setup(user_config)
   M.config = config.build(user_config)
+  backdrop.setup()
   token_colors.setup(M.config.token_colors)
 
   state.setup_autocmds(function(bufnr, buf_state)

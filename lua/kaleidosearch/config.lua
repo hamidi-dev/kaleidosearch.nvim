@@ -7,6 +7,10 @@ local default_config = {
   highlight_group_prefix = 'WordColor_',
   case_sensitive = false,
   whole_word_match = false,
+  backdrop = {
+    enabled = false,
+    highlight_group = 'KaleidosearchBackdrop',
+  },
   token_colors = {
     enabled = true,
     model = 'gpt-4o',

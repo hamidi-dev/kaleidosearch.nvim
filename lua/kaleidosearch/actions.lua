@@ -1,6 +1,7 @@
 local M = {}
 
 function M.attach(api, deps)
+  local backdrop = deps.backdrop
   local matcher = deps.matcher
   local palette = deps.palette
   local state = deps.state
@@ -115,6 +116,7 @@ function M.attach(api, deps)
     vim.api.nvim_command('set nohlsearch')
     state.set_filetype_to_txt(buffer, buf_state)
 
+    backdrop.apply(buffer, api.config.backdrop)
     colorize_words(buffer, buf_state, words_to_colorize)
 
     local search_pattern = matcher.build_search_pattern(words_to_colorize, api.config.case_sensitive, api.config.whole_word_match)
@@ -176,8 +178,7 @@ function M.attach(api, deps)
     sync_public_state(buffer, buf_state)
   end
 
-  function api.colorize_tokens(opts)
-    opts = opts or {}
+  local function prepare_token_colorization()
     local buffer, buf_state = current_context()
 
     vim.api.nvim_command('set nohlsearch')
@@ -185,9 +186,14 @@ function M.attach(api, deps)
     buf_state.last_words = {}
     state.restore_original_filetype(buffer, buf_state)
     sync_public_state(buffer, buf_state)
+  end
+
+  function api.colorize_tokens(opts)
+    opts = opts or {}
+    prepare_token_colorization()
 
     if token_colors.colorize(opts) then
-      local _, active_state = current_context()
+      local buffer, active_state = current_context()
       active_state.token_colors_force = opts.force == true
       sync_public_state(buffer, active_state)
       set_repeat(active_state, repeat_actions.tokens)
@@ -195,6 +201,7 @@ function M.attach(api, deps)
   end
 
   function api.toggle_token_colors()
+    prepare_token_colorization()
     token_colors.toggle()
   end
 

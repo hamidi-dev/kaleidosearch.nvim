@@ -248,6 +248,109 @@ describe('kaleidosearch', function()
     vim.api.nvim_buf_delete(second_buf, { force = true })
   end)
 
+  describe('backdrop', function()
+    local namespace = require('kaleidosearch.state').namespace
+
+    local function backdrop_marks(buffer, group)
+      return vim.tbl_filter(function(mark)
+        return mark[4].hl_group == (group or 'KaleidosearchBackdrop')
+      end, vim.api.nvim_buf_get_extmarks(buffer or 0, namespace, 0, -1, { details = true }))
+    end
+
+    it('should leave non-matching text unchanged by default', function()
+      kaleidosearch.apply_colorization({ 'test' })
+      assert.are.equal(0, #backdrop_marks())
+    end)
+
+    it('should cover the buffer below the colored matches without accumulating on repeat', function()
+      kaleidosearch.setup({ backdrop = { enabled = true } })
+      vim.cmd('Kaleidosearch test')
+      kaleidosearch.add_new_word('file')
+      kaleidosearch.repeat_last_action()
+
+      local marks = backdrop_marks()
+      assert.are.equal(1, #marks)
+      assert.are.equal(0, marks[1][2])
+      assert.are.equal(0, marks[1][3])
+      assert.are.equal(vim.api.nvim_buf_line_count(0), marks[1][4].end_row)
+
+      local words = vim.tbl_filter(function(mark)
+        return mark[4].hl_group:find('WordColor_', 1, true) == 1
+      end, vim.api.nvim_buf_get_extmarks(0, namespace, 0, -1, { details = true }))
+      assert.is_true(#words > 0)
+      for _, word in ipairs(words) do
+        assert.is_true(word[4].priority > marks[1][4].priority)
+      end
+    end)
+
+    it('should remove the backdrop on clear and when the last word is toggled off', function()
+      kaleidosearch.setup({ backdrop = { enabled = true } })
+      kaleidosearch.toggle_word('test')
+      assert.are.equal(1, #backdrop_marks())
+      kaleidosearch.toggle_word('test')
+      assert.are.equal(0, #backdrop_marks())
+      assert.are.equal('markdown', vim.bo.filetype)
+
+      kaleidosearch.apply_colorization({ 'file' })
+      kaleidosearch.clear_all_highlights()
+      assert.are.equal(0, #backdrop_marks())
+      assert.are.equal('markdown', vim.bo.filetype)
+    end)
+
+    it('should isolate dimming and cleanup between buffers', function()
+      kaleidosearch.setup({ backdrop = { enabled = true } })
+      local first = vim.api.nvim_get_current_buf()
+      kaleidosearch.apply_colorization({ 'test' })
+
+      local second = vim.api.nvim_create_buf(true, false)
+      vim.api.nvim_set_current_buf(second)
+      vim.api.nvim_buf_set_lines(second, 0, -1, false, { 'second buffer' })
+      assert.are.equal(0, #backdrop_marks(second))
+      kaleidosearch.apply_colorization({ 'second' })
+      kaleidosearch.clear_all_highlights()
+      assert.are.equal(0, #backdrop_marks(second))
+      assert.are.equal(1, #backdrop_marks(first))
+
+      vim.api.nvim_set_current_buf(first)
+      vim.api.nvim_buf_delete(second, { force = true })
+    end)
+
+    it('should remove dimming when switching to line or token modes', function()
+      kaleidosearch.setup({ backdrop = { enabled = true }, token_colors = { enabled = false, notify = false } })
+      kaleidosearch.apply_colorization({ 'test' })
+      kaleidosearch.colorize_all_lines()
+      assert.are.equal(0, #backdrop_marks())
+
+      -- Disable the external tokenizer: cleanup must happen even if token mode cannot start.
+      for _, start_tokens in ipairs({ kaleidosearch.colorize_tokens, kaleidosearch.toggle_token_colors }) do
+        kaleidosearch.apply_colorization({ 'test' })
+        start_tokens()
+        assert.are.equal(0, #backdrop_marks())
+        assert.are.equal('markdown', vim.bo.filetype)
+      end
+    end)
+
+    it('should use a custom highlight group', function()
+      vim.api.nvim_set_hl(0, 'KaleidosearchTestBackdrop', { fg = '#666666' })
+      kaleidosearch.setup({ backdrop = { enabled = true, highlight_group = 'KaleidosearchTestBackdrop' } })
+      kaleidosearch.apply_colorization({ 'test' })
+      assert.are.equal(1, #backdrop_marks(0, 'KaleidosearchTestBackdrop'))
+      assert.are.equal(0, #backdrop_marks())
+    end)
+
+    it('should restore the theme link after a colorscheme change and preserve user overrides', function()
+      vim.cmd('colorscheme default')
+      assert.are.equal('Comment', vim.api.nvim_get_hl(0, { name = 'KaleidosearchBackdrop' }).link)
+
+      vim.api.nvim_set_hl(0, 'KaleidosearchBackdrop', { fg = '#666666' })
+      kaleidosearch.setup({ backdrop = { enabled = true } })
+      vim.api.nvim_exec_autocmds('ColorScheme', {})
+      local color = vim.api.nvim_get_hl(0, { name = 'KaleidosearchBackdrop', link = false }).fg
+      vim.api.nvim_set_hl(0, 'KaleidosearchBackdrop', { link = 'Comment' })
+      assert.are.equal(0x666666, color)
+    end)
+  end)
+
   it('should expose session info and info command', function()
     kaleidosearch.apply_colorization({ 'test', 'file' })
 
